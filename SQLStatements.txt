@@ -1,0 +1,88 @@
+******Remove dups from files**********
+
+	SELECT * FROM cfalrt F1 WHERE RRN(F1) < ( SELECT MAX(               
+	RRN(F2) ) FROM cfalrt F2 WHERE f1.CFASID = f2.CFASID and            
+	f1.CFATYP = f2.CFATYP and f1.CFACC# = f2.CFACC#                     
+	and f1.CFASEQ = f2.CFASEQ and f1.CFAMSG = f2.CFAMSG and f1.CFCIF# = 
+	f2.CFCIF# and f1.CFALTA = f2.CFALTA and f1.CFEXPD = f2.CFEXPD and   
+	f1.CFEXP6 = f2.CFEXP6 and f1.CFMPDT = f2.CFMPDT and f1.CFMPD6 =     
+	f2.CFMPD6 and f1.CFAOFF = f2.CFAOFF and                             
+	f1.CFAPLN = f2.CFAPLN) 
+
+
+******Delete an item using relative record number for searching for the duplicate************
+
+delete                                                               
+ from cfalrt f1                                                       
+ where rrn(f1) < (select max( rrn(f2))                                
+ from cfalrt f2                                                       
+ where f1.cfasid = f2.cfasid and (f1.cfatyp = 'C' and f2.cfatyp = 'C')
+       and f1.cfatyp = f2.cfatyp and                                  
+       f1.cfamsg = f2.cfamsg and f1.cfcif# = f2.cfcif#)
+	   
+	   
+*******Update a incorrectly assigned negative number*******
+
+update  dat467/cfmast    
+set cfssno = cfssno * -1 
+where cfssno = -465338673
+
+
+********Format information from files for the bank to review*****
+
+select digits(TTRNCD)||'.'||digits(TEXTCD)||'.'||digits(TREVCD)
+||'.'|| digits(TIRTYp)||'.'                                    
+from esavt                                                     
+group by ttrncd, textcd, trevcd, TIRTYp                        
+order by ttrncd, textcd, trevcd, TIRTYp
+
+********See if there are dups between libraries for cdhist ******
+
+select * from jhadather/cdhist            
+where                                     
+ (TRACCT, TRANCD, TRDAT7, TREFD7, tramt)  
+in (select                                
+  TRACCT, TRANCD, TRDAT7, TREFD7, tramt   
+  from jhcbartho1/cdhist)
+  
+*********Update certain fields to match the same file from another library**********
+
+update   dat366/acpar5 d                                         
+set (d.ac5edd,d.ac5ecd,d.ac5edw,d.ac5ecw,d.ac5edm,d.ac5ecm) =    
+    (select c.ac5edd,c.ac5ecd,c.ac5edw,c.ac5ecw,c.ac5edm,c.ac5ecm
+         from jhcbartho3/acpar5 c                                
+         where (c.acp5nm,c.acp5id,c.acp5se) =                    
+               (d.acp5nm,d.acp5id,d.acp5se) )                    
+where (d.acp5nm,d.acp5id,d.acp5se) in                            
+      (select t.acp5nm,t.acp5id,t.acp5se                         
+             from jhcbartho3/acpar5 t)
+			 
+*********Replace certain characters in a file****
+
+update wk1360936a/ddefth_t           
+set efhds2 = replace(efhds2,'~','*') 
+                                     
+where efhact = 7204237197   
+
+************View's***************
+
+First create view:
+create or replace view cnvwsd/cdoob  
+as                                   
+select a.CHACCT,                     
+(select min(CHPSTD) from cdhist_t b  
+ where a.CHACCT = b.CHACCT           
+) as mindate                         
+from cdhist_t a                                                           
+group by a.CHACCT                    
+                                  
+ 
+Then run query:
+select *                               
+from cdbal1 a                          
+join cdoob  b on a.ACCTNO = b.chacct   
+join cdmast c on a.ACCTNO = c.ACCTNO   
+where mindate <= c.issdt       			 
+
+
+*************************************************
